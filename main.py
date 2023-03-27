@@ -25,7 +25,7 @@ def comput_workstation1_value1(workstation1, workstation2):
     return value1
 
 
-# xxx
+# 计算将workstation2的work_type产品卖到需要的工作台的最短距离
 def nextmin_dis_comput(work_type, workstation2):
     flag = 0
     nextmin_dis = math.inf
@@ -88,7 +88,7 @@ def nextmin_dis_comput(work_type, workstation2):
     return best_dis, flag, value3
 
 
-# xxx
+# 计算机器人从workstations1到workstations2的路径开销，dis1表示机器人到workstations1的距离，dis2表示workstations1到workstation2的距离
 def workstations_value(workstation1, workstation2, dis1, dis2):
     value1 = 3000
     # value2=0
@@ -98,16 +98,19 @@ def workstations_value(workstation1, workstation2, dis1, dis2):
     nextmin_dis2 = 0
     work_type = workstation2.type
     value2 = 0
-    if ((workstation2.product_status == 1) or (workstation2.proc_time < 150 and workstation2.proc_time >= 0)):
-        value2 = workstation2.value
-        nextmin_dis, flag1, _ = nextmin_dis_comput(work_type, workstation2)
-    nextmin_dis2, flag2, value3 = nextmin_dis_comput(work_type, workstation2)
+    if ((workstation2.product_status == 1) or (workstation2.proc_time < 150 and workstation2.proc_time >= 0)):#如果workstations2有产品，或者产品快生产出来了
+        value2 = workstation2.value  #那么机器从workstations1买产品卖到workstations2，又可以立马从workstations2买产品卖到其他地方
+        nextmin_dis, flag1, _ = nextmin_dis_comput(work_type, workstation2)  #计算workstations2的产品可以卖到那些工作台，并计算最短的路径
+    nextmin_dis2, flag2, value3 = nextmin_dis_comput(work_type, workstation2)  #如果workstations的产品是其他工作台需要的，应该尽快让workstation2产出产品
 
-    value1 = comput_workstation1_value1(workstation1, workstation2)
+    value1 = comput_workstation1_value1(workstation1, workstation2)  
 
     all_value = (
                     value1 * Vaule_weight1 if flag1 == 0 else value1 * Vaule_weight1 + value2 * flag1 * Vaule_weight1) + value3 * flag2 * Vaule_weight3
-    all_dis = dis1 + dis2 + nextmin_dis * flag1 + nextmin_dis2 * flag2 * Vaule_weight3
+    all_dis = dis1 + dis2 + nextmin_dis * flag1 + nextmin_dis2 * flag2 * Vaule_weight3  #allvalue包括了三部分。value1 value2 value3
+    #value1表示workstations1的产品的一个价值
+    #value2表示机器人将产品卖到workstation2时，正好买workstation2的产品，省去了还需要前往另一个工作台卖产品的距离
+    #value3表示workstations2的产品是其他工作台急需的，比如7号工作台就差4了，那4就是急需的。
     return all_dis / all_value
 
 
@@ -123,43 +126,43 @@ def robot_control(order, _id, value=None):  # 定义了一个名为robot_control
 # 机器人类, 目标坐标, bot_rad是什么
 def control_to_goal(Single_robot, target1, bot_rad):
     direction1 = (target1 - Single_robot.pos) / np.linalg.norm(target1 - Single_robot.pos)  # 计算机器人到目标点的方向向量
-    direction_right1 = math.atan2(direction1[1][0], direction1[0][0])  # 计算夹角
-    ori = Single_robot.toward
-    dis = np.linalg.norm(Single_robot.pos - target1)
-    err = direction_right1 - ori
+    direction_right1 = math.atan2(direction1[1][0], direction1[0][0])  # 机器人到目标点的夹角
+    ori = Single_robot.toward  #机器人当前朝向
+    dis = np.linalg.norm(Single_robot.pos - target1)   #计算机器人到目标点的距离
+    err = direction_right1 - ori   #计算机器人到目标点的夹角和机器人当前朝向的误差
     while err > math.pi:
         err -= 2.0 * math.pi
     while err < -math.pi:
         err += 2.0 * math.pi
-    robot_start = np.array([[rob_startpoint[Single_robot.id - 1][0]], [rob_startpoint[Single_robot.id - 1][1]]])
-    start_to_tar = np.linalg.norm(robot_start - target1)
+    robot_start = np.array([[rob_startpoint[Single_robot.id - 1][0]], [rob_startpoint[Single_robot.id - 1][1]]])  #记录机器人的起点位置（注意这里不是机器人的实时位置，起点位置表示机器人完成一个目标的那一刻的位置），如果机器人的起点到目标点距离太小，那么速度应该小点不然旋转半径太大一直转圈
+    start_to_tar = np.linalg.norm(robot_start - target1)  #计算机器人起点到目标点的距离
 
     # 防撞墙的路径执行
-    # 阈值为 1 的情况
-    if (target1[0][0] < 1 or target1[0][0] > 49) or (target1[1][0] < 1 or target1[1][0] > 49):
-        if dis < 0.8:
-            robot_control("forward", Single_robot.id - 1, 2)
-        elif dis < 1.5:
-            robot_control("forward", Single_robot.id - 1, 4)
-        else:
-            if abs(err) > bot_rad:
-                robot_control("forward", Single_robot.id - 1, 6)
+   
+    if (target1[0][0] < 1 or target1[0][0] > 49) or (target1[1][0] < 1 or target1[1][0] > 49):  #如果目标点工作台距离墙的距离小于1
+        if dis < 0.8:    #如果机器人当前位置到目标位置距离小于0.8米
+            robot_control("forward", Single_robot.id - 1, 2)   机器人速度设置为2
+        elif dis < 1.5:  #如果小于2.5  速度为4
+            robot_control("forward", Single_robot.id - 1, 4)   
+        else:    #如果机器人距离目标点还远，就全力前进
+            if abs(err) > bot_rad:   #如果err大于一个阈值，这里设置的是pi/6
+                robot_control("forward", Single_robot.id - 1, 6)   #机器人做半径为6/pi的圆周运动，直到夹角小于阈值
                 robot_control("rotate", Single_robot.id - 1, err * 1000000)
-            else:
+            else:   #如果夹角小于阈值，机器人做一个圆弧运动。但是半径很大，所以和直线差不多
                 r_sei = math.pi / 2 - (err)
                 r = dis / 2 / math.cos(r_sei)
                 robot_control("forward", Single_robot.id - 1, 6)
                 robot_control("rotate", Single_robot.id - 1, 6 / r)
-    # 阈值为 2 的情况
-    elif (robot_start[0][0] < 2 or robot_start[0][0] > 48) or (robot_start[1][0] < 2 or robot_start[1][0] > 48):
-        if np.linalg.norm(robot_start - Single_robot.pos) < 1:
-            if abs(err) > math.pi / 2:
-                robot_control("forward", Single_robot.id - 1, -1)
-                robot_control("rotate", Single_robot.id - 1, err * 1000000)
-            elif abs(err) > bot_rad:
+
+    elif (robot_start[0][0] < 2 or robot_start[0][0] > 48) or (robot_start[1][0] < 2 or robot_start[1][0] > 48):  #如果机器人起点的位置距离墙太近，这里注意是起点位置。上面是终点位置距离墙过近
+        if np.linalg.norm(robot_start - Single_robot.pos) < 1:  #起点表示机器人在起点位置完成了一个任务，该前往其他目标点了。如果机器的位置距离起点位置小于1
+            if abs(err) > math.pi / 2:   #如果机器人朝向和目标点的方向差大于90度
+                robot_control("forward", Single_robot.id - 1, -1)  #机器人先后退，因为此时应该是机器人正朝向墙，如果前进的话会撞墙
+                robot_control("rotate", Single_robot.id - 1, err * 1000000)  #最大旋转速度旋转
+            elif abs(err) > bot_rad:    #如果差在30度到60度之间，就可以前进了，因为此时已经不面向墙了
                 robot_control("forward", Single_robot.id - 1, 4)
                 robot_control("rotate", Single_robot.id - 1, err * 1000000)
-        else:
+        else:  #如果机器人已经远离墙了，就可以全力前进了
             if abs(err) > bot_rad:
                 robot_control("forward", Single_robot.id - 1, 6)
                 robot_control("rotate", Single_robot.id - 1, err * 1000000)
@@ -174,7 +177,7 @@ def control_to_goal(Single_robot, target1, bot_rad):
         # 6 / pi 是最大半径 （最大半径这个变量应该写成大写常数）
         # 起点到终点一半的距离小于最大半径时才能进入此条件
         # 否则 bot 转圈, 无法到达目的地
-        if start_to_tar / 2 < 6 / math.pi:
+        if start_to_tar / 2 < 6 / math.pi:   #如果机器人的起点到终点的距离太小，应该吧速度调小，不然半径太大，永远也到不了，并且一直做圆周运动
 
             if abs(err) > bot_rad:
                 robot_control("forward", Single_robot.id - 1, start_to_tar / 2.5 * math.pi)
@@ -188,11 +191,11 @@ def control_to_goal(Single_robot, target1, bot_rad):
         # 正常走圆弧能够到达目的地
         else:
             # xxx
-            if abs(err) > bot_rad:
+            if abs(err) > bot_rad:#第一段圆弧，半径为6/pi
                 robot_control("forward", Single_robot.id - 1, 6)
                 robot_control("rotate", Single_robot.id - 1, err * 1000000)
             # xxx
-            else:
+            else:  #第二段圆弧，半径是算出来的
                 r_sei = math.pi / 2 - (err)
                 r = dis / 2 / math.cos(r_sei)
                 robot_control("forward", Single_robot.id - 1, 6)
@@ -205,13 +208,13 @@ def find_haveproduct_stations(Single_robot):  # 如果机器人没有携带产�
 
     bots_to_product = np.full((1, len(workstations)),
                               0)  # bots_to_product 1行k列矩阵。 bots_to_product[0][i]代表机器人可以到达编号为i的工作台
-    if Single_robot.carried_item_type == 0 and fid < 9000 - 300:
+    if Single_robot.carried_item_type == 0 and fid < 9000 - 300:  #如果机器人没有携带产品
         for j in range(len(workstations)):
             dis = np.linalg.norm(workstations[j].pos - Single_robot.pos)
             if workstations_lock[j][0] != 0:
                 continue
-            if ((workstations[j].product_status == 1) or (
-                    workstations[j].proc_time <= dis / 7 * 50 and workstations[j].proc_time >= 0)):
+            if ((workstations[j].product_status == 1) or (     
+                    workstations[j].proc_time <= dis / 7 * 50 and workstations[j].proc_time >= 0)):  #如果j工作台有产品或者机器人到j工作台之前，j工作台可以将产品生产出来
                 bots_to_product[0][j] = 1
     return bots_to_product
 
@@ -223,13 +226,13 @@ def find_needmaterial_stations(bots_to_product, Single_robot):  # 如果机器�
                                   0)  # k行k列。product_to_material[i][j]代表机器人可以到i工作台购买物品，然后买到j号工作台
 
     for i in range(len(workstations)):  # 查找编号为i的工作台可以将产品卖到那些工作台
-        if bots_to_product[0][i] == 1:
+        if bots_to_product[0][i] == 1:     #如果i工作台可达，下面查找那些工作台可以收购i工作台的产品
             work_type = workstations[i].type  # 编号i工作台的产品编号
             if work_type == 1:  # 如果是1号产品，则型号为4,5,9的工作台可以收购该产品
                 for j in range(len(workstations)):
                     if workstations_lock[j][1] != 0:  # 如果j号工作台已经成为另一个机器人的目标，则不能成为目标
                         continue
-                    if ((workstations[j].type == 5 and workstations[j].material_status % 8 == 0) or
+                    if ((workstations[j].type == 5 and workstations[j].material_status % 8 == 0) or  
                             (workstations[j].type == 4 and workstations[
                                 j].material_status % 4 == 0) or  # 4号工作台可以收购12号产品。如果材料格没有1号产品，则可以成为目标
                             (workstations[j].type == 9)):
@@ -283,20 +286,20 @@ def find_needmaterial_stations(bots_to_product, Single_robot):  # 如果机器�
 
 
 # 查找机器人bot从当前坐标先到i工作台购买物品再卖到j工作台的最短距离
-# 机器人类, xxx
+
 def compute_shortest_paths(Single_robot, product_to_material):
     bot_path = np.full((1, 2), 1)  # 最优路径
-    dis = np.full((len(workstations), len(workstations)), 1.0)
-    min_dis = math.inf
+    dis = np.full((len(workstations), len(workstations)), 1.0)  #距离矩阵
+    min_dis = math.inf  
     for j in range(len(workstations)):
         for k in range(len(workstations)):
-            if product_to_material[j][k] == 1:
-                dis1 = np.linalg.norm(workstations[j].pos - Single_robot.pos)
-                dis2 = np.linalg.norm(workstations[j].pos - workstations[k].pos)
-                real_dis = workstations_value(workstations[j], workstations[k], dis1,
+            if product_to_material[j][k] == 1: #如果可以先到j工作台买产品，在买到k工作台，那么计算路径开销
+                dis1 = np.linalg.norm(workstations[j].pos - Single_robot.pos)  #机器人到j工作台的距离
+                dis2 = np.linalg.norm(workstations[j].pos - workstations[k].pos)  #j工作台到k工作台的距离
+                real_dis = workstations_value(workstations[j], workstations[k], dis1, 
                                               dis2)  # （最终距离=机器人到i的距离+机器人到j的距离）/i工作台到j工作台的价值
-                dis[j][k] = real_dis
-                if real_dis < min_dis:
+                dis[j][k] = real_dis 
+                if real_dis < min_dis:   #更新开销最短的路径
                     min_dis = real_dis
                     bot_path[0][0] = j
                     bot_path[0][1] = k
@@ -304,9 +307,9 @@ def compute_shortest_paths(Single_robot, product_to_material):
 
 
 def update_path(Single_robot):  # 更新路径，如果一个机器人完成了运送，确定他的下一个运送路径
-    bots_to_product = find_haveproduct_stations(Single_robot)
-    product_to_material = find_needmaterial_stations(bots_to_product, Single_robot)
-    best_path = compute_shortest_paths(Single_robot, product_to_material)
+    bots_to_product = find_haveproduct_stations(Single_robot)    #返回Single_robot可以前往那些工作台进行买商品
+    product_to_material = find_needmaterial_stations(bots_to_product, Single_robot)  #返回机器人可以从i工作台买商品，再买到j工作台
+    best_path = compute_shortest_paths(Single_robot, product_to_material)  #计算所有路径的最小开销，即最优路径
     return best_path, bots_to_product, product_to_material
 
 
@@ -316,10 +319,10 @@ def bots_coordinate_motion():  # 机器人运动
             goal = rob_path_information[i][0]
             rob_path_information[i][2] = goal
             workstations_lock[goal][0] = bots[i].id
-        elif rob_path_information[i][0] == -1 and rob_path_information[i][1] != -1:  # 如果机器人已经购买了商品，则前往计划好的工作台进行销售
-            goal = rob_path_information[i][1]
+        elif rob_path_information[i][0] == -1 and rob_path_information[i][1] != -1:  # 如果机器人已经购买了商品，则前往计划好的工作台进行销售（第一个目标已经完成，前往第二个目标）
+            goal = rob_path_information[i][1]  #此时目标为第二个工作台
             rob_path_information[i][2] = goal
-        else:  # 机器人完成了运送任务，进行路径更新
+        else:  # 机器人完成了运送任务，进行路径更新（第一个第二个目标都完成了，应该更新路径）
             goal_station, bots_to_product, product_to_material = update_path(bots[i])  # 计算新路径
             # print("帧数:", fid, "\n", file=sys.stderr)
             # print("igdoal:\n", workstations_lock, "\n", file=sys.stderr)
@@ -329,7 +332,7 @@ def bots_coordinate_motion():  # 机器人运动
             # print("goal_station:", goal_station, "\n", file=sys.stderr)
 
             if goal_station[0][0] == 1 and goal_station[0][1] == 1:  # 如果工作台个数太少，可能有机器人闲置，则其目标会是0号工作台
-                # 如果是这样的话，清空其任务，每次循环更新其路径，直到找到新路径
+                # 如果是这样的话，清空其任务，每次循环更新其路径，控制机器人转圈，直到找到新路径
                 rob_path_information[i][0] = -1
                 rob_path_information[i][0] = -1
                 robot_control("forward", i, 6)
@@ -357,26 +360,27 @@ def bots_operator():
 
         if robot.at_ws_id == rob_path_information[robot.id - 1][2]:  # 当前位置是目标位置进行卖买操作
             if rob_path_information[robot.id - 1][0] == rob_path_information[robot.id - 1][2] and workstations[
-                robot.at_ws_id].product_status == 1 and robot.at_ws_id != -1:
+                robot.at_ws_id].product_status == 1 and robot.at_ws_id != -1:  #进行买商品
                 robot_control("buy", robot.id - 1)
-                rob_path_information[robot.id - 1][0] = -1
-                rob_path_information[robot.id - 1][3] = robot.x
+                rob_path_information[robot.id - 1][0] = -1     #买完商品，该矩阵第一个值赋值为-1，表示第一个目标已经完成
+                rob_path_information[robot.id - 1][3] = robot.x   #买完商品，确定机器人此时的起点。方便判断起点和目标点的距离
                 rob_startpoint[robot.id - 1][0] = robot.x
                 rob_startpoint[robot.id - 1][1] = robot.y
                 rob_path_information[robot.id - 1][4] = robot.y
                 workstations_lock[rob_path_information[robot.id - 1][2]][0] = 0  # 买完之后，其他机器人可以选择本工作台
-            if rob_path_information[robot.id - 1][2] == rob_path_information[robot.id - 1][1] and robot.at_ws_id != -1:
+            if rob_path_information[robot.id - 1][2] == rob_path_information[robot.id - 1][1] and robot.at_ws_id != -1: #进行卖操作
                 robot_control("sell", robot.id - 1)
-                rob_path_information[robot.id - 1][1] = -1
-                workstations_lock[rob_path_information[robot.id - 1][2]][robot.carried_item_type] = 0
+                rob_path_information[robot.id - 1][1] = -1    #卖完商品，该矩阵的第二个值赋值为-1，表示第二个目标已经完成
+                workstations_lock[rob_path_information[robot.id - 1][2]][robot.carried_item_type] = 0  #卖完了商品，锁应该解开。
                 rob_path_information[robot.id - 1][3] = robot.x
-                rob_path_information[robot.id - 1][4] = robot.y
+                rob_path_information[robot.id - 1][4] = robot.y  #更新机器人的当前位置，即前往下一个目标点的起点
                 rob_startpoint[robot.id - 1][0] = robot.x
                 rob_startpoint[robot.id - 1][1] = robot.y
 
 
 # 动态更新工作台价值
 # 包含大量需要优化的未定参数
+# 当工作7只差456产品其中一个，就将该产品升值2倍。只差456其中两个，将两个产品小额度升值1.5倍
 def update_workstation_value():
     for i in range(len(workstations)):
         if game_map == 4:
@@ -478,9 +482,9 @@ if __name__ == '__main__':
                 Vaule_weight3 = 1
 
         # 每一帧
-        update_workstation_value()  # 更新价值
-        bots_coordinate_motion()  # 移动
-        bots_operator()  # 购买、销售、销毁
+        update_workstation_value()  # 更新价值，每一个种路径都有价值，此价值是动态的，需要更新
+        bots_coordinate_motion()  # 控制多个机器人运动，包括目标选取、路径选择
+        bots_operator()  # 控制单个机器人进行购买、销售、销毁操作，并更新一些全局变量
 
         # 结束
         sys.stdout.write('OK\n')
