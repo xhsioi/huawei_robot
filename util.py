@@ -1,9 +1,4 @@
-import math
-import os
-import sys
-import numpy as np
 from model import *
-
 
 def init():
     # 读取地图

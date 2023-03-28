@@ -1,4 +1,8 @@
 import numpy as np
+import math
+import sys
+import os
+
 class Bot:
 
     def __init__(self,id, at_ws_id, carried_item_type, time_value_coe, collision_value_coe, angular_v, linear_v_x, linear_v_y, toward, x, y):
@@ -23,7 +27,6 @@ class Bot:
             direction = target - self.pos
             return direction / np.linalg.norm(direction)
 
-        
 
 class Workstation:
 
